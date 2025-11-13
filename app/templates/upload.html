@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+
+{% block title %}Upload CSV - Product Importer{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2>Upload CSV File</h2>
+    <p style="margin: 1rem 0;">Select a CSV file to import products. Large files will be processed in the background.</p>
+
+    <form id="uploadForm" enctype="multipart/form-data">
+        <div class="form-group">
+            <label for="file">CSV File (max 500MB)</label>
+            <input type="file" id="file" name="file" accept=".csv" required>
+        </div>
+        <button type="submit" class="btn">Upload</button>
+    </form>
+
+    <div id="uploadStatus" class="hidden" style="margin-top: 2rem;">
+        <h3>Upload Progress</h3>
+        <div class="progress-bar">
+            <div id="progressBar" class="progress-bar-fill" style="width: 0%">0%</div>
+        </div>
+        <p id="statusMessage"></p>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const uploadForm = document.getElementById('uploadForm');
+    const uploadStatus = document.getElementById('uploadStatus');
+    const progressBar = document.getElementById('progressBar');
+    const statusMessage = document.getElementById('statusMessage');
+
+    uploadForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const fileInput = document.getElementById('file');
+        const file = fileInput.files[0];
+
+        if (!file) {
+            alert('Please select a file');
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        try {
+            // Show upload status
+            uploadStatus.classList.remove('hidden');
+            statusMessage.textContent = 'Uploading file...';
+
+            const response = await fetch('/api/upload', {
+                method: 'POST',
+                body: formData
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.error || 'Upload failed');
+            }
+
+            statusMessage.textContent = 'Processing file...';
+
+            // Poll for progress
+            pollProgress(data.task_id);
+
+        } catch (error) {
+            statusMessage.textContent = `Error: ${error.message}`;
+            statusMessage.style.color = 'red';
+        }
+    });
+
+    function pollProgress(taskId) {
+        const interval = setInterval(async () => {
+            try {
+                const response = await fetch(`/api/upload/status/${taskId}`);
+                const data = await response.json();
+
+                if (data.job) {
+                    const progress = data.job.progress || 0;
+                    progressBar.style.width = `${progress}%`;
+                    progressBar.textContent = `${progress.toFixed(1)}%`;
+
+                    statusMessage.textContent = `Processing: ${data.job.processed_rows} / ${data.job.total_rows} rows`;
+
+                    if (data.job.status === 'completed') {
+                        clearInterval(interval);
+                        statusMessage.textContent = `Success! Processed ${data.job.total_rows} products.`;
+                        statusMessage.style.color = 'green';
+
+                        // Reset form after 3 seconds
+                        setTimeout(() => {
+                            uploadForm.reset();
+                            uploadStatus.classList.add('hidden');
+                            progressBar.style.width = '0%';
+                            statusMessage.textContent = '';
+                            statusMessage.style.color = '';
+                        }, 3000);
+                    } else if (data.job.status === 'failed') {
+                        clearInterval(interval);
+                        statusMessage.textContent = `Error: ${data.job.error_message}`;
+                        statusMessage.style.color = 'red';
+                    }
+                }
+            } catch (error) {
+                clearInterval(interval);
+                statusMessage.textContent = `Error: ${error.message}`;
+                statusMessage.style.color = 'red';
+            }
+        }, 1000); // Poll every second
+    }
+</script>
+{% endblock %}
