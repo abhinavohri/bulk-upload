@@ -4,7 +4,12 @@
 
 {% block content %}
 <div class="card">
-    <h2>Product Management</h2>
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+        <h2>Product Management</h2>
+        <div style="font-size: 1.2rem; font-weight: bold; color: #666;">
+            Total Products: <span id="totalCount">0</span>
+        </div>
+    </div>
 
     <div style="display: flex; justify-content: space-between; align-items: center; margin: 1rem 0;">
         <div>
@@ -12,7 +17,7 @@
             <button class="btn btn-danger" onclick="bulkDelete()">Delete All Products</button>
         </div>
         <div>
-            <input type="text" id="searchInput" placeholder="Search products..." style="width: 300px;">
+            <input type="text" id="searchInput" placeholder="Search by SKU, name, or status (active/inactive)..." style="width: 400px;">
         </div>
     </div>
 
@@ -41,10 +46,6 @@
             <div class="form-group">
                 <label for="description">Description</label>
                 <textarea id="description"></textarea>
-            </div>
-            <div class="form-group">
-                <label for="price">Price</label>
-                <input type="number" id="price" step="0.01">
             </div>
             <div class="form-group">
                 <label>
@@ -82,6 +83,9 @@
         const response = await fetch(`/api/products?page=${currentPage}&per_page=20&search=${search}`);
         const data = await response.json();
 
+        // Update total count
+        document.getElementById('totalCount').textContent = data.total || 0;
+
         displayProducts(data);
         displayPagination(data);
     }
@@ -94,15 +98,14 @@
             return;
         }
 
-        let html = '<table><thead><tr><th>SKU</th><th>Name</th><th>Price</th><th>Status</th><th>Actions</th></tr></thead><tbody>';
+        let html = '<table><thead><tr><th>SKU</th><th>Name</th><th>Status</th><th>Actions</th></tr></thead><tbody>';
 
         data.products.forEach(product => {
             html += `
                 <tr>
                     <td>${product.sku}</td>
                     <td>${product.name}</td>
-                    <td>$${product.price || 0}</td>
-                    <td>${product.active ? 'Active' : 'Inactive'}</td>
+                    <td><span style="color: ${product.active ? 'green' : 'red'};">${product.active ? 'Active' : 'Inactive'}</span></td>
                     <td>
                         <button class="btn" onclick="editProduct(${product.id})" style="padding: 0.5rem 1rem; font-size: 0.9rem;">Edit</button>
                         <button class="btn btn-danger" onclick="deleteProduct(${product.id})" style="padding: 0.5rem 1rem; font-size: 0.9rem;">Delete</button>
@@ -160,7 +163,6 @@
         document.getElementById('sku').value = product.sku;
         document.getElementById('name').value = product.name;
         document.getElementById('description').value = product.description || '';
-        document.getElementById('price').value = product.price || '';
         document.getElementById('active').checked = product.active;
         document.getElementById('productModal').style.display = 'block';
     }
@@ -173,7 +175,6 @@
             sku: document.getElementById('sku').value,
             name: document.getElementById('name').value,
             description: document.getElementById('description').value,
-            price: parseFloat(document.getElementById('price').value) || null,
             active: document.getElementById('active').checked
         };
 
