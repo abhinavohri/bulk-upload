@@ -32,6 +32,16 @@
     const progressBar = document.getElementById('progressBar');
     const statusMessage = document.getElementById('statusMessage');
 
+    window.addEventListener('DOMContentLoaded', () => {
+        const activeUpload = localStorage.getItem('activeUpload');
+        if (activeUpload) {
+            const upload = JSON.parse(activeUpload);
+            uploadStatus.classList.remove('hidden');
+            statusMessage.textContent = 'Fetching info...';
+            pollProgress(upload.task_id);
+        }
+    });
+
     uploadForm.addEventListener('submit', async (e) => {
         e.preventDefault();
 
@@ -47,7 +57,6 @@
         formData.append('file', file);
 
         try {
-            // Show upload status
             uploadStatus.classList.remove('hidden');
             statusMessage.textContent = 'Uploading file...';
 
@@ -64,6 +73,12 @@
 
             statusMessage.textContent = 'Processing file...';
 
+            localStorage.setItem('activeUpload', JSON.stringify({
+                task_id: data.task_id,
+                job_id: data.job_id,
+                filename: file.name
+            }));
+
             // Poll for progress
             pollProgress(data.task_id);
 
@@ -77,18 +92,32 @@
         const interval = setInterval(async () => {
             try {
                 const response = await fetch(`/api/upload/status/${taskId}`);
+
+                if (!response.ok) {
+                    const activeUpload = localStorage.getItem('activeUpload');
+                    if (response.status === 404 && !activeUpload) {
+                        clearInterval(interval);
+                        return;
+                    }
+                    throw new Error('Failed to fetch status');
+                }
+
                 const data = await response.json();
 
                 if (data.job) {
-                    const progress = data.job.progress || 0;
-                    progressBar.style.width = `${progress}%`;
-                    progressBar.textContent = `${progress.toFixed(1)}%`;
+                    const currentRows = data.progress ? data.progress.current : data.job.processed_rows;
+                    const totalRows = data.progress ? data.progress.total : data.job.total_rows;
+                    const percent = data.progress ? data.progress.percent : data.job.progress;
 
-                    statusMessage.textContent = `Processing: ${data.job.processed_rows} / ${data.job.total_rows} rows`;
+                    progressBar.style.width = `${percent}%`;
+                    progressBar.textContent = `${percent}%`;
+
+                    statusMessage.textContent = `Processing: ${currentRows} / ${totalRows} rows`;
 
                     if (data.job.status === 'completed') {
                         clearInterval(interval);
-                        statusMessage.textContent = `Success! Processed ${data.job.total_rows} products.`;
+                        localStorage.removeItem('activeUpload');
+                        statusMessage.textContent = `Success! Processed ${data.job.processed_rows || totalRows} products.`;
                         statusMessage.style.color = 'green';
 
                         // Reset form after 3 seconds
@@ -101,16 +130,19 @@
                         }, 3000);
                     } else if (data.job.status === 'failed') {
                         clearInterval(interval);
-                        statusMessage.textContent = `Error: ${data.job.error_message}`;
+                        localStorage.removeItem('activeUpload');
+                        statusMessage.textContent = `Error: ${data.job.error_message || 'Upload failed'}`;
                         statusMessage.style.color = 'red';
                     }
                 }
             } catch (error) {
+                console.error('Polling error:', error);
                 clearInterval(interval);
+                localStorage.removeItem('activeUpload');
                 statusMessage.textContent = `Error: ${error.message}`;
                 statusMessage.style.color = 'red';
             }
-        }, 1000); // Poll every second
+        }, 1000);
     }
 </script>
 {% endblock %}
