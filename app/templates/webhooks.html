@@ -1,0 +1,169 @@
+{% extends "base.html" %}
+
+{% block title %}Webhooks - Product Importer{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2>Webhook Management</h2>
+
+    <div style="margin: 1rem 0;">
+        <button class="btn" onclick="showCreateModal()">Add Webhook</button>
+    </div>
+
+    <div id="webhooksTable">
+        <div class="loading"></div>
+        <p>Loading webhooks...</p>
+    </div>
+</div>
+
+<!-- Modal for Create/Edit Webhook -->
+<div id="webhookModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000;">
+    <div style="position: relative; margin: 50px auto; max-width: 600px; background: white; padding: 2rem; border-radius: 8px;">
+        <h3 id="modalTitle">Add Webhook</h3>
+        <form id="webhookForm">
+            <input type="hidden" id="webhookId">
+            <div class="form-group">
+                <label for="url">Webhook URL</label>
+                <input type="url" id="url" required placeholder="https://example.com/webhook">
+            </div>
+            <div class="form-group">
+                <label for="event_type">Event Type</label>
+                <select id="event_type" required>
+                    <option value="product.created">Product Created</option>
+                    <option value="product.updated">Product Updated</option>
+                    <option value="product.deleted">Product Deleted</option>
+                    <option value="product.bulk_upload">Bulk Upload</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" id="enabled"> Enabled
+                </label>
+            </div>
+            <div style="display: flex; gap: 1rem;">
+                <button type="submit" class="btn">Save</button>
+                <button type="button" class="btn" onclick="hideWebhookModal()">Cancel</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Load webhooks on page load
+    loadWebhooks();
+
+    async function loadWebhooks() {
+        const response = await fetch('/api/webhooks');
+        const webhooks = await response.json();
+        displayWebhooks(webhooks);
+    }
+
+    function displayWebhooks(webhooks) {
+        const container = document.getElementById('webhooksTable');
+
+        if (webhooks.length === 0) {
+            container.innerHTML = '<p>No webhooks configured.</p>';
+            return;
+        }
+
+        let html = '<table><thead><tr><th>URL</th><th>Event Type</th><th>Status</th><th>Actions</th></tr></thead><tbody>';
+
+        webhooks.forEach(webhook => {
+            html += `
+                <tr>
+                    <td>${webhook.url}</td>
+                    <td>${webhook.event_type}</td>
+                    <td>${webhook.enabled ? '<span style="color: green;">Enabled</span>' : '<span style="color: red;">Disabled</span>'}</td>
+                    <td>
+                        <button class="btn" onclick="testWebhook(${webhook.id})" style="padding: 0.5rem 1rem; font-size: 0.9rem;">Test</button>
+                        <button class="btn" onclick="editWebhook(${webhook.id})" style="padding: 0.5rem 1rem; font-size: 0.9rem;">Edit</button>
+                        <button class="btn btn-danger" onclick="deleteWebhook(${webhook.id})" style="padding: 0.5rem 1rem; font-size: 0.9rem;">Delete</button>
+                    </td>
+                </tr>
+            `;
+        });
+
+        html += '</tbody></table>';
+        container.innerHTML = html;
+    }
+
+    function showCreateModal() {
+        document.getElementById('modalTitle').textContent = 'Add Webhook';
+        document.getElementById('webhookForm').reset();
+        document.getElementById('webhookId').value = '';
+        document.getElementById('enabled').checked = true;
+        document.getElementById('webhookModal').style.display = 'block';
+    }
+
+    function hideWebhookModal() {
+        document.getElementById('webhookModal').style.display = 'none';
+    }
+
+    async function editWebhook(id) {
+        const response = await fetch(`/api/webhooks/${id}`);
+        const webhook = await response.json();
+
+        document.getElementById('modalTitle').textContent = 'Edit Webhook';
+        document.getElementById('webhookId').value = webhook.id;
+        document.getElementById('url').value = webhook.url;
+        document.getElementById('event_type').value = webhook.event_type;
+        document.getElementById('enabled').checked = webhook.enabled;
+        document.getElementById('webhookModal').style.display = 'block';
+    }
+
+    document.getElementById('webhookForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const id = document.getElementById('webhookId').value;
+        const data = {
+            url: document.getElementById('url').value,
+            event_type: document.getElementById('event_type').value,
+            enabled: document.getElementById('enabled').checked
+        };
+
+        const url = id ? `/api/webhooks/${id}` : '/api/webhooks';
+        const method = id ? 'PUT' : 'POST';
+
+        const response = await fetch(url, {
+            method: method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+
+        if (response.ok) {
+            hideWebhookModal();
+            loadWebhooks();
+        } else {
+            const error = await response.json();
+            alert(error.error || 'An error occurred');
+        }
+    });
+
+    async function deleteWebhook(id) {
+        if (!confirm('Are you sure you want to delete this webhook?')) {
+            return;
+        }
+
+        const response = await fetch(`/api/webhooks/${id}`, { method: 'DELETE' });
+
+        if (response.ok) {
+            loadWebhooks();
+        } else {
+            alert('Failed to delete webhook');
+        }
+    }
+
+    async function testWebhook(id) {
+        const response = await fetch(`/api/webhooks/${id}/test`, { method: 'POST' });
+        const result = await response.json();
+
+        if (result.success) {
+            alert(`Webhook test successful!\nStatus Code: ${result.status_code}\nResponse Time: ${result.response_time.toFixed(3)}s`);
+        } else {
+            alert(`Webhook test failed: ${result.error}`);
+        }
+    }
+</script>
+{% endblock %}
