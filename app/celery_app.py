@@ -23,6 +23,9 @@ def make_celery(app_name=__name__):
         task_track_started=True,
         task_time_limit=3600,  # 1 hour
         task_soft_time_limit=3300,  # 55 minutes
+        broker_connection_retry_on_startup=True,
+        worker_prefetch_multiplier=1,
+        worker_max_tasks_per_child=1000,
     )
 
     return celery
