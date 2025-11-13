@@ -14,4 +14,9 @@ def create_app(config_name='default'):
     # Initialize extensions
     db.init_app(app)
 
+    from app.routes import main_bp, product_bp, webhook_bp
+    app.register_blueprint(main_bp)
+    app.register_blueprint(product_bp, url_prefix='/api/products')
+    app.register_blueprint(webhook_bp, url_prefix='/api/webhooks')
+
     return app
