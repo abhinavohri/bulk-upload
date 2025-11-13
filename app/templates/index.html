@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+
+{% block title %}Home - Product Importer{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2>Welcome to Product Importer</h2>
+    <p style="margin: 1rem 0;">A scalable web application for importing and managing products from CSV files.</p>
+
+    <h3 style="margin-top: 2rem;">Features</h3>
+    <ul style="margin-left: 2rem; margin-top: 1rem;">
+        <li>Upload large CSV files (up to 500,000 products)</li>
+        <li>Real-time upload progress tracking</li>
+        <li>Product management (CRUD operations)</li>
+        <li>Bulk delete functionality</li>
+        <li>Webhook configuration and management</li>
+        <li>Case-insensitive SKU handling</li>
+        <li>Automatic duplicate detection and update</li>
+    </ul>
+
+    <h3 style="margin-top: 2rem;">Quick Start</h3>
+    <div style="margin-top: 1rem; display: flex; gap: 1rem;">
+        <a href="/upload" class="btn">Upload CSV</a>
+        <a href="/products" class="btn">Manage Products</a>
+        <a href="/webhooks" class="btn">Configure Webhooks</a>
+    </div>
+</div>
+
+<div class="card">
+    <h3>CSV Format</h3>
+    <p style="margin: 1rem 0;">Your CSV file should include the following columns:</p>
+    <table>
+        <thead>
+            <tr>
+                <th>Column</th>
+                <th>Required</th>
+                <th>Description</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>sku</td>
+                <td>Yes</td>
+                <td>Unique product identifier (case-insensitive)</td>
+            </tr>
+            <tr>
+                <td>name</td>
+                <td>Yes</td>
+                <td>Product name</td>
+            </tr>
+            <tr>
+                <td>description</td>
+                <td>No</td>
+                <td>Product description</td>
+            </tr>
+            <tr>
+                <td>price</td>
+                <td>No</td>
+                <td>Product price (numeric)</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+{% endblock %}
