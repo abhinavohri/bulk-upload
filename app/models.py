@@ -17,7 +17,7 @@ class Product(db.Model):
     description = db.Column(db.Text)
     price = db.Column(db.Numeric(10, 2))
     active = db.Column(db.Boolean, default=True, nullable=False)
-    created_at = db.Column(db.DateTime, deafult=utc_now(), nullable=False)
+    created_at = db.Column(db.DateTime, default=utc_now(), nullable=False)
     updated_at = db.Column(db.DateTime, default=utc_now(), onupdate=utc_now(), nullable=False)
 
     def __repr__(self):
