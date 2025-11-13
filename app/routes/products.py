@@ -2,6 +2,7 @@ from flask import request, jsonify
 from app.routes import product_bp
 from app import db
 from app.models import Product
+from app.utils import trigger_webhook
 from sqlalchemy import or_
 
 
@@ -17,13 +18,19 @@ def get_products():
 
     if search:
         search_filter = f'%{search}%'
-        query = query.filter(
-            or_(
-                Product.sku.ilike(search_filter),
-                Product.name.ilike(search_filter),
-                Product.description.ilike(search_filter)
+        search_lower = search.lower().strip()
+
+        if search_lower in ['active', 'inactive']:
+            is_active = (search_lower == 'active')
+            query = query.filter(Product.active == is_active)
+        else:
+            query = query.filter(
+                or_(
+                    Product.sku.ilike(search_filter),
+                    Product.name.ilike(search_filter),
+                    Product.description.ilike(search_filter)
+                )
             )
-        )
 
     if active_only:
         query = query.filter(Product.active)
@@ -64,12 +71,13 @@ def create_product():
         sku=data['sku'].strip(),
         name=data['name'].strip(),
         description=data.get('description', '').strip(),
-        price=data.get('price'),
         active=data.get('active', True)
     )
 
     db.session.add(product)
     db.session.commit()
+
+    trigger_webhook('product.created', product.to_dict())
 
     return jsonify(product.to_dict()), 201
 
@@ -90,12 +98,12 @@ def update_product(product_id):
         product.name = data['name'].strip()
     if 'description' in data:
         product.description = data['description'].strip()
-    if 'price' in data:
-        product.price = data['price']
     if 'active' in data:
         product.active = data['active']
 
     db.session.commit()
+
+    trigger_webhook('product.updated', product.to_dict())
 
     return jsonify(product.to_dict())
 
@@ -104,8 +112,12 @@ def update_product(product_id):
 def delete_product(product_id):
     """Delete a product"""
     product = Product.query.get_or_404(product_id)
+    product_data = product.to_dict()  # Save before deleting
+
     db.session.delete(product)
     db.session.commit()
+
+    trigger_webhook('product.deleted', product_data)
 
     return jsonify({'message': 'Product deleted successfully'}), 200
 
@@ -115,5 +127,10 @@ def bulk_delete_products():
     """Delete all products"""
     count = Product.query.delete()
     db.session.commit()
+
+    trigger_webhook('product.bulk_delete', {
+        'count': count,
+        'message': f'{count} products deleted'
+    })
 
     return jsonify({'message': f'{count} products deleted successfully', 'count': count}), 200
