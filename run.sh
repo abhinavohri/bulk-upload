@@ -4,6 +4,6 @@ set -e
 
 python init_db.py
 
-gunicorn run:app --bind 0.0.0.0:$PORT --timeout 300 --log-level info &
+gunicorn run:app --bind 0.0.0.0:$PORT --timeout 300 --log-level info --workers 1 &
 
-celery -A celery_worker.celery worker --loglevel=info --concurrency=2
+celery -A celery_worker.celery worker --loglevel=info --concurrency=1
